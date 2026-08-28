@@ -115,15 +115,19 @@ def compare_extraction(
     LOGGER.debug("using %s extraction: %s", "generic" if use_readability else "custom", options.source)
 
     # override faulty extraction: try with justext
-    if body.xpath(SANITIZED_XPATH) or len_text < options.min_extracted_size:
-        LOGGER.debug("unclean document triggering justext examination: %s", options.source)
+    unclean = bool(body.xpath(SANITIZED_XPATH))
+    if unclean or len_text < options.min_extracted_size:
+        LOGGER.debug("unclean or short document triggering justext examination: %s", options.source)
         body2, text2, len_text2 = justext_rescue(cleaned_tree, options)
-        # prevent too short documents from replacing the main text
-        if (
-            text2
-            and len_text <= JUSTEXT_OVERRIDE_RATIO * len_text2
-            and (len_text2 > len_text or not options.images or body.find(".//graphic") is None)
-        ):
+        # unclean: allow shorter (boilerplate dropped), guard image-heavy pages;
+        # merely short: must add text, len_text2 > len_text is implied (#896)
+        if unclean:
+            accept = len_text <= JUSTEXT_OVERRIDE_RATIO * len_text2 and (
+                len_text2 > len_text or not options.images or body.find(".//graphic") is None
+            )
+        else:
+            accept = len_text < len_text2
+        if text2 and accept:
             LOGGER.debug("using justext, length: %s", len_text2)
             body, text, len_text = body2, text2, len_text2
             jt_result = True

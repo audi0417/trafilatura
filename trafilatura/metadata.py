@@ -20,6 +20,7 @@ from htmldate import find_date
 from lxml.etree import XPath
 from lxml.html import HtmlElement, tostring
 
+from .baseline import block_text
 from .htmlprocessing import prune_unwanted_nodes
 from .json_metadata import (
     extract_json,
@@ -331,10 +332,8 @@ def extract_title(tree: HtmlElement) -> str | None:
     """Extract the document title"""
     # only one h1-element: take it
     h1_results = tree.findall(".//h1")
-    if len(h1_results) == 1:
-        title = trim(h1_results[0].text_content())
-        if title:
-            return title
+    if len(h1_results) == 1 and (title := block_text(h1_results[0])):
+        return title
     # extract using x-paths
     title = extract_metainfo(tree, TITLE_XPATHS) or ""
     if title:
@@ -345,15 +344,13 @@ def extract_title(tree: HtmlElement) -> str | None:
         if t and "." not in t:
             return t
     # take first non-empty h1-title
-    if h1_results:
-        for h1_result in h1_results:
-            title = trim(h1_result.text_content())
-            if title:
-                return title
+    for h1_result in h1_results:
+        if title := block_text(h1_result):
+            return title
     # take first h2-title
-    try:
-        title = trim(tree.xpath(".//h2")[0].text_content())
-    except IndexError:
+    if h2_results := tree.xpath(".//h2"):
+        title = block_text(h2_results[0])
+    else:
         LOGGER.debug("no h2 title found")
     return title or None
 
@@ -408,7 +405,7 @@ def extract_catstags(metatype: str, tree: HtmlElement) -> list[str]:
     xpath_expression = CATEGORIES_XPATHS if metatype == "category" else TAGS_XPATHS
     # search using custom expressions
     for catexpr in xpath_expression:
-        results.extend(elem.text_content() for elem in catexpr(tree) if re.search(regexpr, elem.attrib["href"]))
+        results.extend(block_text(elem) for elem in catexpr(tree) if re.search(regexpr, elem.attrib["href"]))
         if results:
             break
     # category fallback
@@ -431,8 +428,7 @@ def parse_license_element(element: HtmlElement, strict: bool = False) -> str | N
     match = LICENSE_REGEX.search(element.get("href", ""))
     if match:
         return f"CC {match[1].upper()} {match[2]}"
-    # use text_content() to also catch text wrapped in nested markup
-    text = trim(element.text_content())
+    text = block_text(element)
     if text:
         # check if it could be a CC license
         if strict:
