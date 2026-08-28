@@ -16,7 +16,7 @@ from lxml.html import HtmlElement
 
 # own
 from .baseline import baseline, html2txt
-from .deduplication import content_fingerprint, duplicate_test
+from .deduplication import LRUCache, content_fingerprint, duplicate_test
 from .external import compare_extraction, justext_rescue
 from .htmlprocessing import (
     build_html_output,
@@ -313,7 +313,7 @@ def bare_extraction(
     include_images: bool = False,
     include_formatting: bool | None = None,
     include_links: bool = False,
-    deduplicate: bool = False,
+    deduplicate: bool | LRUCache = False,
     date_extraction_params: dict[str, Any] | None = None,
     with_metadata: bool = False,
     only_with_metadata: bool = False,
@@ -345,6 +345,7 @@ def bare_extraction(
             (kept in XML, rendered as markdown for text formats; ignored for JSON).
         include_links: Keep links along with their targets.
         deduplicate: Remove duplicate segments and documents.
+            Accepts an LRUCache instance as dedicated, scoped cache.
         date_extraction_params: Provide extraction parameters to htmldate as dict().
         with_metadata: Extract metadata fields and add them to the output.
         only_with_metadata: Only keep documents featuring all essential metadata
@@ -521,7 +522,7 @@ def extract(
     include_images: bool = False,
     include_formatting: bool | None = None,
     include_links: bool = False,
-    deduplicate: bool = False,
+    deduplicate: bool | LRUCache = False,
     date_extraction_params: dict[str, Any] | None = None,
     with_metadata: bool = False,
     only_with_metadata: bool = False,
@@ -555,6 +556,7 @@ def extract(
             (kept in XML, rendered as markdown for text formats; ignored for JSON).
         include_links: Keep links along with their targets.
         deduplicate: Remove duplicate segments and documents.
+            Accepts an LRUCache instance as dedicated, scoped cache.
         date_extraction_params: Provide extraction parameters to htmldate as dict().
         with_metadata: Extract metadata fields and add them to the output.
         only_with_metadata: Only keep documents featuring all essential metadata
@@ -617,7 +619,7 @@ def extract_with_metadata(
     include_images: bool = False,
     include_formatting: bool | None = None,
     include_links: bool = False,
-    deduplicate: bool = False,
+    deduplicate: bool | LRUCache = False,
     date_extraction_params: dict[str, Any] | None = None,
     url_blacklist: set[str] | None = None,
     author_blacklist: set[str] | None = None,
@@ -648,6 +650,7 @@ def extract_with_metadata(
             (kept in XML, rendered as markdown for text formats; ignored for JSON).
         include_links: Keep links along with their targets.
         deduplicate: Remove duplicate segments and documents.
+            Accepts an LRUCache instance as dedicated, scoped cache.
         date_extraction_params: Provide extraction parameters to htmldate as dict().
         url_blacklist: Provide a blacklist of URLs as set() to filter out documents.
         author_blacklist: Provide a blacklist of Author Names as set() to filter out authors.
@@ -730,7 +733,7 @@ def _internal_extraction(
     include_images: bool = False,
     include_formatting: bool | None = None,
     include_links: bool = False,
-    deduplicate: bool = False,
+    deduplicate: bool | LRUCache = False,
     date_extraction_params: dict[str, Any] | None = None,
     with_metadata: bool = False,
     only_with_metadata: bool = False,
