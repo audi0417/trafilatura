@@ -597,3 +597,24 @@ def test_document_as_dict():
     assert dict_["categories"] == ["Cat1", "Cat2"]
     assert dict_["license"] == "CC BY-SA 4.0"
     assert dict_["image"] == "https://example.org/example.jpg"
+
+
+def test_block_boundaries_not_fused():
+    "block children must not fuse on a minified page (GH #896); inline children must stay joined"
+    title = extract_metadata("<html><body><h1><div>Kicker</div><div>Main headline</div></h1></body></html>")
+    assert title.title == "Kicker Main headline"
+
+    cats = extract_metadata(
+        '<html><body><h1>T</h1><p class="entry-categories">'
+        '<a href="/category/local"><div>Local</div><div>News</div></a></p></body></html>'
+    )
+    assert cats.categories == ["Local News"]
+
+    lic = extract_metadata(
+        '<html><body><h1>T</h1><footer><a rel="license" href="/legal">'
+        "<div>Content</div><div>under our terms</div></a></footer></body></html>"
+    )
+    assert lic.license == "Content under our terms"
+
+    inline = extract_metadata("<html><body><h1>Hyper<span>link</span>ed</h1></body></html>")
+    assert inline.title == "Hyperlinked"

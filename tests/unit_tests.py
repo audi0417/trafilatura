@@ -2350,6 +2350,29 @@ def test_no_duplicate_content():
         assert out.count("Second synthetic paragraph") == 1
 
 
+def test_short_document_keeps_structure():
+    "regression #896: the baseline rescue must not flatten a valid short extraction it cannot improve on."
+    doc = (
+        "<html><body><article><h1>Notice Title</h1>"
+        "<p>This municipal notice concerns the closure of the main road for repairs.</p>"
+        "<ul><li>Detour signposted east</li><li>Works end on Friday</li></ul>"
+        "</article></body></html>"
+    )
+    # real config: the doc is below min_extracted_size, so the rescue engages (ZERO_CONFIG hides it)
+    result = extract(doc, output_format="markdown", include_formatting=True, config=use_config()) or ""
+    assert "# Notice Title" in result
+    assert "- Detour signposted east" in result
+
+
+def test_short_document_baseline_rescue_accepted():
+    "the other side of the #896 gate: when the rescue does add text, it must still win."
+    # distinct sentences: a repeated one trips the body-level duplicate_test instead.
+    # The empty <body> keeps the main extractor at zero, so the rescue is what supplies the text.
+    body = " ".join(f"Sentence {i} of a body that arrives only as structured data." for i in range(6))
+    doc = f'<html><body><script type="application/ld+json">{{"@type": "Article", "articleBody": "{body}"}}</script></body></html>'
+    assert "Sentence 3 of a body" in (extract(doc, output_format="txt", config=use_config()) or "")
+
+
 def test_no_duplicate_content_list_item():
     "regression T6: a <p> already folded into a <list> item by the main pass must not be re-added by \
     recover_wild_text — backup_tree is a snapshot taken before the main pass marks consumed tags 'done'."
@@ -2711,6 +2734,33 @@ def test_compare_extraction_justext_ratio(monkeypatch):
     replaced = "a" * 250
     _, text, _ = external.compare_extraction(empty_tree, empty_tree, body, replaced, len(replaced), options)
     assert text == jt_text
+
+
+def test_compare_extraction_justext_short_trigger(monkeypatch):
+    "on a merely-short body the justext override must add text; JUSTEXT_OVERRIDE_RATIO's \
+    tolerance for a shorter result applies only to an unclean body (GH #896, one stage earlier)"
+    import trafilatura.external as external
+
+    def fake_justext(text):
+        body = etree.Element("body")
+        etree.SubElement(body, "p").text = text
+        return lambda tree, options: (body, text, len(text))
+
+    options = core.Extractor()
+    options.min_extracted_size = 250  # set here: the shared config is mutated by other tests
+    empty_tree = html.fromstring("<html><body></body></html>")
+    clean_body = html.fromstring("<body><p>text</p></body>")  # no SANITIZED_XPATH match
+    own = "a" * 150  # below min_extracted_size -> the short clause triggers the examination
+
+    # justext no longer than the own extraction: keep the own one (the old gate replaced it)
+    monkeypatch.setattr(external, "justext_rescue", fake_justext("j" * 149))
+    _, text, _ = external.compare_extraction(empty_tree, empty_tree, clean_body, own, len(own), options)
+    assert text == own
+
+    # justext actually adds text: it overrides
+    monkeypatch.setattr(external, "justext_rescue", fake_justext("j" * 300))
+    _, text, _ = external.compare_extraction(empty_tree, empty_tree, clean_body, own, len(own), options)
+    assert text == "j" * 300
 
 
 def test_list_item_block_child_single_bullet():

@@ -117,9 +117,8 @@ def _render_text(raw: str) -> str:
     # and lxml rejects them in .text assignments
     raw = remove_control_characters(unescape(raw))
     if _HTML_MARKUP.search(raw):
-        # fragment parse: load_html targets full documents and rejects fragments
         try:
-            return trim(fragment_fromstring(raw, create_parent="div").text_content())
+            return block_text(fragment_fromstring(raw, create_parent="div"))
         except Exception:  # pragma: no cover
             pass
     return trim(raw)
@@ -201,7 +200,7 @@ def baseline(filecontent: HtmlInput) -> tuple[_Element, str, int]:
     article_texts = [
         text
         for elem in tree.xpath(".//article[not(ancestor::article)]")
-        if len(text := trim(elem.text_content())) > _MIN_CONTENT_LENGTH
+        if len(text := block_text(elem)) > _MIN_CONTENT_LENGTH
     ]
     if article_texts:
         # never None: the longest article passes both its own length gate and the cutoff
@@ -214,7 +213,7 @@ def baseline(filecontent: HtmlInput) -> tuple[_Element, str, int]:
     # skip any element whose ancestor is already in the scraped set (handles <p><code>, <blockquote><p>, etc. - #849, #884)
     scraped_tags = {"blockquote", "code", "p", "pre", "q", "quote"}
     paragraphs = (
-        trim(element.text_content())
+        block_text(element)
         for element in tree.iter("blockquote", "code", "p", "pre", "q", "quote")
         if not any(anc.tag in scraped_tags for anc in element.iterancestors())
     )
@@ -308,3 +307,12 @@ def html2txt(content: HtmlInput, clean: bool = True) -> str:
         elem.text = f" {remove_control_characters(elem.text)}" if elem.text else " "
         elem.tail = f" {remove_control_characters(elem.tail)}" if elem.tail else " "
     return " ".join(body.text_content().split())
+
+
+def block_text(element: HtmlElement) -> str:
+    """text_content() alternative that preserves word boundaries at block tags (#896)."""
+    element = copy(element)
+    for elem in element.iter(*_BLOCK_ELEMS):
+        elem.text = f" {remove_control_characters(elem.text)}" if elem.text else " "
+        elem.tail = f" {remove_control_characters(elem.tail)}" if elem.tail else " "
+    return " ".join(element.text_content().split())

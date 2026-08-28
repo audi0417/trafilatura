@@ -467,6 +467,26 @@ def test_baseline_article_dominance():
     assert all(post.format(i) in result2 for i in range(3))
 
 
+def test_baseline_minified_block_boundaries():
+    "no whitespace at block boundaries must not fuse words (GH #896), in any strategy"
+    sentence = "Sentence number {} of the notice, long enough to clear the content length gate."
+    blocks = "".join(f"<p>{sentence.format(i)}</p>" for i in range(3))
+    # article strategy, then paragraph strategy (a <br> inside the paragraph)
+    for doc in (
+        f"<html><body><article><h1>Notice Title</h1>{blocks}</article></body></html>",
+        f"<html><body><div><p>{sentence.format(0)}<br/>{sentence.format(1)}</p>{blocks}</div></body></html>",
+    ):
+        _, result, _ = baseline(doc)
+        assert "notice.Sentence" not in result and "TitleSentence" not in result
+        assert sentence.format(1) in result
+
+    # markup arriving escaped inside embedded JSON
+    body = escape("".join(f"<p>{sentence.format(i)}</p>" for i in range(3)))
+    doc = f'<html><body><script type="application/ld+json">{{"articleBody": "{body}"}}</script></body></html>'
+    _, result, _ = baseline(doc)
+    assert "notice.Sentence" not in result and sentence.format(1) in result
+
+
 def test_html2txt():
     mydoc = "<html><body>Here is the body text</body></html>"
     assert html2txt(mydoc) == "Here is the body text"

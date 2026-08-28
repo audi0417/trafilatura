@@ -236,13 +236,13 @@ def trafilatura_sequence(
             options,
         )
 
-    # 3. rescue: baseline on the original tree
+    # 3. rescue: baseline on the original tree, accepted only if it adds text (#896)
     if len_text < options.min_extracted_size and options.focus != "precision":
         b_body, b_text, b_len = baseline(tree)  # baseline copies element inputs
-        if b_len > len_text or not options.images or postbody.find(".//graphic") is None:
+        LOGGER.debug("non-clean extracted length: %s (extraction)", b_len)
+        if b_len > len_text:
             postbody, temp_text, len_text = b_body, b_text, b_len
             forum_posts = None  # the dump saw the whole page: missing posts are boilerplate, not lost
-        LOGGER.debug("non-clean extracted length: %s (extraction)", b_len)
 
     # 4. recall escalation: a short extraction covering little of the page suggests
     # under-extraction (non-article layout) — retry in recall mode, keep if clearly bigger.
