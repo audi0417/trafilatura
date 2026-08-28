@@ -330,6 +330,12 @@ def test_decode():
         # for the whole document
         truncated = zstd_stream_compress(html_string.encode("utf-8") * 500)
         bad_files.append(truncated[: len(truncated) // 2])
+        # reserved bit set in the frame header descriptor (the byte after the
+        # magic): rejected by the decompressor itself rather than by the
+        # end-of-frame check
+        frame = bytearray(zstandard.compress(html_string.encode("utf-8")))
+        frame[4] |= 0x08
+        bad_files.append(bytes(frame))
     for bad_file in bad_files:
         assert handle_compressed_file(bad_file) == bad_file
 
