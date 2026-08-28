@@ -12,7 +12,7 @@ The presence of duplicate content on the web can have detrimental effects on dat
 
 Trafilatura offers two types of duplicate detection: identical segment detection, which works on exact same text parts, and near-duplicate removal, which uses locality-sensitive hashing to identify similar texts.
 
-Duplicate tracking is performed on a per-thread basis. Each thread or process independently keeps track of its own list of duplicates, without relying on centralized information.
+Duplicate tracking is performed on a per-process basis, without relying on centralized information. By default all extractions in the same process share the same cache, see below for scoped tracking.
 
 
 .. note::
@@ -37,6 +37,23 @@ The functions ``extract()`` and ``bare_extraction()`` include a parameter to all
 - ``deduplicate = True``
 - ``options.dedup = True`` (see ``settings.Extractor``)
 
+
+By default, duplicate tracking uses a cache shared across all extractions in the same process. To keep tracking independent from other extractions, pass a dedicated ``LRUCache`` instance instead of ``True``. Reusing the same instance across calls tracks duplicates within that group of documents only, and a fresh instance per call makes results deterministic:
+
+
+.. code-block:: python
+
+    >>> from trafilatura import extract
+    >>> from trafilatura.deduplication import LRUCache
+
+    >>> cache = LRUCache(maxsize=1024)
+    >>> result = extract(document, deduplicate=cache)  # doctest: +SKIP
+
+    # or scoped to a single call
+    >>> result = extract(document, deduplicate=LRUCache(maxsize=1024))  # doctest: +SKIP
+
+
+A cache instance is only shared within a process: with a ``ProcessPoolExecutor``, each submitted task receives a pickled copy of the cache, so duplicates are not tracked across documents. Cross-document deduplication requires processing the documents in the same process.
 
 
 Custom functions

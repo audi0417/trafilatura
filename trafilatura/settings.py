@@ -10,11 +10,14 @@ from configparser import ConfigParser
 from datetime import datetime
 from html import unescape
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from lxml.etree import Element, XPath, _Element
 
 from .utils import line_processing
+
+if TYPE_CHECKING:
+    from .deduplication import LRUCache
 
 LOGGER = logging.getLogger(__name__)
 
@@ -129,7 +132,7 @@ class Extractor:
         links: bool = False,
         images: bool = False,
         tables: bool = True,
-        dedup: bool = False,
+        dedup: "bool | LRUCache" = False,
         lang: str | None = None,
         url: str | None = None,
         source: str | None = None,
@@ -158,7 +161,7 @@ class Extractor:
         self.links: bool = links
         self.images: bool = images
         self.tables: bool = tables
-        self.dedup: bool = dedup
+        self.dedup: bool | LRUCache = dedup
         self.lang: str | None = lang
         self.url: str | None = url
         self.only_with_metadata: bool = only_with_metadata
