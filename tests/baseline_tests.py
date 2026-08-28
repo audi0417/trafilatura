@@ -477,14 +477,16 @@ def test_baseline_minified_block_boundaries():
         f"<html><body><div><p>{sentence.format(0)}<br/>{sentence.format(1)}</p>{blocks}</div></body></html>",
     ):
         _, result, _ = baseline(doc)
-        assert "notice.Sentence" not in result and "TitleSentence" not in result
+        assert "notice.Sentence" not in result
+        assert "TitleSentence" not in result
         assert sentence.format(1) in result
 
     # markup arriving escaped inside embedded JSON
     body = escape("".join(f"<p>{sentence.format(i)}</p>" for i in range(3)))
     doc = f'<html><body><script type="application/ld+json">{{"articleBody": "{body}"}}</script></body></html>'
     _, result, _ = baseline(doc)
-    assert "notice.Sentence" not in result and sentence.format(1) in result
+    assert "notice.Sentence" not in result
+    assert sentence.format(1) in result
 
 
 def test_html2txt():
